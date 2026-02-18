@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLIMATWIN - Direct API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        h1 {
+            color: #667eea;
+        }
+
+        .test-section {
+            background: #16213e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .result {
+            background: #0f3460;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .success {
+            border-left: 4px solid #48bb78;
+        }
+
+        .error {
+            border-left: 4px solid #f56565;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .status.ok {
+            background: #48bb78;
+            color: white;
+        }
+
+        .status.fail {
+            background: #f56565;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🌍 CLIMATWIN - Direct API Connection Test</h1>
+    <p>This page tests the API directly without going through the Flask server's static file serving.</p>
+
+    <div class="test-section">
+        <h2>Test 1: Health Check</h2>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Quick Analysis</h2>
+        <button onclick="testAnalysis()">Run Bridge Flood Analysis</button>
+        <div id="analysisResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Server Connection Status</h2>
+        <div id="connectionStatus">Not tested yet</div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api';
+
+        function updateStatus(elementId, message, isSuccess) {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `<div class="result ${isSuccess ? 'success' : 'error'}">${message}</div>`;
+        }
+
+        async function testHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            const statusDiv = document.getElementById('connectionStatus');
+
+            resultDiv.innerHTML = '<p>Testing...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+
+                const resultHTML = `
+<strong>✅ SUCCESS!</strong>
+Status: ${response.status}
+Service: ${data.service}
+Version: ${data.version}
+Health: ${data.status}
+
+<strong>Full Response:</strong>
+${JSON.stringify(data, null, 2)}
+                `;
+
+                updateStatus('healthResult', resultHTML, true);
+                statusDiv.innerHTML = '<div class="status ok">✅ API Server is ONLINE and WORKING!</div>';
+            } catch (error) {
+                const errorHTML = `
+<strong>❌ ERROR!</strong>
+${error.message}
+
+This usually means:
+1. Flask server is not running
+2. Server is on a different port  
+3. CORS issue (unlikely since we enabled it)
+4. Browser security blocking localhost
+
+<strong>Try this:</strong>
+1. Check if Flask server is running in terminal
+2. Try http://localhost:5000/api/health in address bar
+3. Check Windows Firewall settings
+                `;
+                updateStatus('healthResult', errorHTML, false);
+                statusDiv.innerHTML = '<div class="status fail">❌ Cannot connect to API server</div>';
+            }
+        }
+
+        async function testAnalysis() {
+            const resultDiv = document.getElementById('analysisResult');
+            resultDiv.innerHTML = '<p>Running analysis...</p>';
+
+            const payload = {
+                infrastructure: {
+                    id: "DIRECT-TEST-001",
+                    type: "bridge",
+                    material: "steel",
+                    age: 40,
+                    location: "Test City",
+                    span_length: 150,
+                    height_above_water: 12,
+                    load_capacity: 80,
+                    foundation_type: "pile"
+                },
+                climate_event: {
+                    type: "flood",
+                    rainfall_intensity: 100,
+                    water_level: 4,
+                    duration: 18,
+                    severity: "high"
+                }
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/quick-analysis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const resultHTML = `
+<strong>✅ ANALYSIS SUCCESS!</strong>
+
+📊 RESULTS:
+  Stress Score: ${data.stress_score.toFixed(1)} / 100
+  Risk Level: ${data.risk_level.toUpperCase()}
+  Failure Probability: ${data.failure_probability.toFixed(1)}%
+
+💡 TOP INSIGHTS:
+${data.insights.slice(0, 3).map((insight, i) => `  ${i + 1}. ${insight}`).join('\n')}
+
+🎯 TOP RECOMMENDATION:
+  [${data.recommendations[0].priority}] ${data.recommendations[0].action}
+  Timeline: ${data.recommendations[0].timeline}
+  Cost: ${data.recommendations[0].estimated_cost}
+
+<strong>Full JSON Response:</strong>
+${JSON.stringify(data, null, 2).substring(0, 500)}...
+                    `;
+                    updateStatus('analysisResult', resultHTML, true);
+                } else {
+                    updateStatus('analysisResult', `Error: ${data.error}`, false);
+                }
+            } catch (error) {
+                updateStatus('analysisResult', `Network Error: ${error.message}`, false);
+            }
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, running auto-test...');
+            setTimeout(testHealth, 1000);
+        });
+    </script>
+</body>
+
+</html>
